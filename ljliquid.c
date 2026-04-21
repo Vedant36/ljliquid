@@ -12,7 +12,7 @@
 /* * Constants and Macros */
 #define N 100
 #define L 11
-#define M 700.
+#define M 400.
 
 #define MENU 300
 #define SW (M+MENU)
@@ -25,7 +25,8 @@
 
 /* * Structs and Functions */
 typedef struct particle {
-	Vector2 qq, q, p;
+	Vector2 qq, q;
+	Vector2 p, a;
 	Color c;
 } particle;
 
@@ -78,7 +79,6 @@ int main()
 				for (int j = 0; j < N; j++) {
 					if (i==j) continue;
 					double r = Vector2Distance(box[i].q, box[j].q);
-					/* if (r > L/2) r = L - r; */
 					if (r > 10 || r == 0) continue;
 					force = A(force, C(S(box[j].q, box[i].q), -lj_force(r)/r));
 				}
@@ -86,7 +86,7 @@ int main()
 					force = C(force, 100./R(force));
 				box[i].p = Vector2Add(box[i].p, Vector2Scale(force, delta));
 				if (constraining)
-					if (R(box[i].p) > 10)
+					if (R(box[i].p) > 3)
 						box[i].p = C(box[i].p, 1./R(box[i].p));
 				box[i].q = Vector2Add(box[i].q, Vector2Scale(box[i].p, delta));
 			}
