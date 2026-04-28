@@ -12,7 +12,7 @@
 /* * Constants and Macros */
 #define N 100
 #define L 11
-#define M 400.
+#define M 500
 
 #define MENU 300
 #define SW (M+MENU)
@@ -31,21 +31,53 @@ typedef struct particle {
 } particle;
 
 const double delta = 0.005;
-double K = 0, U = 0, P = 0;
+double K = 0, U = 0, P = 0, p = 0;
 particle box[N];
-/* double lj_potential(double r) {return r <= 0.5 ? (2-r)*24 :  4 * (1/powf(r, 12) - 1/powf(r, 6));} */
-/* double     lj_force(double r) {return r <= 0.5 ?       24 : 24 * (2/powf(r, 13) - 1/powf(r, 7));} */
+bool production = false;
+#define BIN_COUNT 250
+double rdf_bins[BIN_COUNT] = {};
 double lj_potential(double r) {return  4 * (1/(1+powf(r, 12)) - 1/(1+powf(r, 6)));}
 double     lj_force(double r) {return 24 * (2/(1+powf(r, 13)) - 1/(1+powf(r, 7)));}
+
 void initialize_particles() {
+	for (int i = 0; i < BIN_COUNT; i++) {
+		rdf_bins[i] = 0.;
+	}
 	for (int i = 0; i < N; i++) {
 		box[i].q = (Vector2) {random()%L, random()%L};
-		box[i].qq = S(box[i].q, C(box[i].p, delta));
 		double _theta = random()%360 * (2*PI/360);
-		double _r = random()%101 / 50.;
+		double _r = random()%101 / 10.;
 		box[i].p = (Vector2) {_r * cos(_theta), _r * sin(_theta)};
+		box[i].qq = S(box[i].q, C(box[i].p, delta));
 		box[i].c = (Color) {random()%255, random()%255, random()%255, 255};
 	}
+	/* Normalize Temperature = 1 */
+	double ptotal = 0;
+	for (int i = 0; i < N; i++) {
+		ptotal += Vector2LengthSqr(box[i].p);
+	}
+	for (int i = 0; i < N; i++) {
+		box[i].p = C(box[i].p, 2*N/ptotal);
+	}
+}
+
+void log_stats(int iteration) {
+	K = 0;
+	for (int i = 0; i < N; i++) {
+		K += 0.5 * Vector2LengthSqr(box[i].p);
+	}
+	double T = K/N;
+	U = 0;
+	p = T * N/L/L;
+	for (int i = 0; i < N; i++) {
+		for (int j = 0; j < i; j++) {
+			double r = Vector2Distance(box[i].q, box[j].q);
+			U += lj_potential(r);
+			p += lj_force(r) * r/2/L/L;
+			if (production) if (r < 5) rdf_bins[(int) (r*50)]++;
+		}
+	}
+	printf("%d, %f, %f, %f\n", iteration, (K+U)/N, T, p);
 }
 
 /* * Main */
@@ -53,7 +85,7 @@ int main()
 {
 	bool paused = false;
 	InitWindow(SW, SH, "Lennard-Jones Liquid");
-	srandom(53);
+	srandom(42);
 	SetTargetFPS(60);
 	ToggleFullscreen();
 	ToggleFullscreen();
@@ -66,45 +98,32 @@ int main()
 	while (!WindowShouldClose())
 	{
 		time_collector += GetFrameTime();
-		if (IsKeyPressed(KEY_SPACE)) paused = !paused;
+		if (IsKeyPressed(KEY_SPACE)) { paused = !paused; time_collector=0; }
 		if (IsKeyPressed(KEY_C)) constraining = !constraining;
 		if (paused) goto draw;
 
 		/* Update */
 		while (time_collector > delta) {
-			time_collector -= delta*2;
+			timecent++;
+			if (timecent >= 5000) production = true;
+			if (timecent%100 == 0)
+				log_stats(timecent);
+			if (timecent >= 15000) paused = true;
+			time_collector -= delta;
 			for (int i = 0; i < N; i++) {
-				/* Vector2 halfvel = box[i].p + force * delta/2 */
-				Vector2 force = Vector2Zero();
+				box[i].q = A(A(box[i].q, C(box[i].p, delta)), C(box[i].a, delta*delta/2));
+				Vector2 aa = Vector2Zero();
 				for (int j = 0; j < N; j++) {
 					if (i==j) continue;
 					double r = Vector2Distance(box[i].q, box[j].q);
-					if (r > 10 || r == 0) continue;
-					force = A(force, C(S(box[j].q, box[i].q), -lj_force(r)/r));
+					if (r == 0) continue;
+					aa = A(aa, C(S(box[j].q, box[i].q), -lj_force(r)/r));
 				}
-				if (R(force) > 24)
-					force = C(force, 100./R(force));
-				box[i].p = Vector2Add(box[i].p, Vector2Scale(force, delta));
-				if (constraining)
-					if (R(box[i].p) > 3)
-						box[i].p = C(box[i].p, 1./R(box[i].p));
-				box[i].q = Vector2Add(box[i].q, Vector2Scale(box[i].p, delta));
-			}
-			timecent++;
-			if (timecent%100 == 1) {
-				/* Stats */
-				K = 0;
-				for (int i = 0; i < N; i++) {
-					K += 0.5 * Vector2LengthSqr(box[i].p);
-				}
-				U = 0;
-				for (int i = 0; i < N; i++) {
-					for (int j = 0; j < i; j++) {
-						double r = Vector2Distance(box[i].q, box[j].q);
-						U += lj_potential(r);
-					}
-				}
-				printf("%d, %f, %f, %f\n", timecent/100, K, U, K+U);
+				box[i].p = A(box[i].p, C(A(box[i].a, aa), delta/2));
+				double r = R(box[i].p);
+				if (r > 2)
+					box[i].p = C(box[i].p, 2./r);
+				box[i].a = aa;
 			}
 		}
 
@@ -115,50 +134,13 @@ int main()
 			if (box[i].q.x > L) box[i].q.x -= L;
 			if (box[i].q.y > L) box[i].q.y -= L;
 		}
-		/* /\* Subtract Center of Momentum *\/ */
-		/* Vector2 P = Vector2Zero(); */
-		/* for (int i = 0; i < N; i++) { */
-		/* 	P = A(P, box[i].p); */
-		/* } */
-		/* C(P, 1./N); */
-		/* for (int i = 0; i < N; i++) { */
-		/* 	box[i].p = S(box[i].p, P); */
-		/* } */
-		/* Normalize velocities to temperature */
-
-		/* /\* Stats *\/ */
-		/* double K = 0; */
-		/* for (int i = 0; i < N; i++) { */
-		/* 	K += 0.5 * Vector2LengthSqr(box[i].p); */
-		/* } */
-		/* double U = 0; */
-		/* for (int i = 0; i < N; i++) { */
-		/* 	for (int j = 0; j < i; j++) { */
-		/* 		double r = Vector2Distance(box[i].q, box[j].q); */
-		/* 		U += lj_potential(r); */
-		/* 	} */
-		/* } */
-		/* /\* printf("%d, %f, %f, %f\n", timecent, K, U, K+U); *\/ */
-		/* /\* timecent++; *\/ */
-		/* if (U > 100000) { */
-		/* 	for (int i = 0; i < N; i++) { */
-		/* 		for (int j = 0; j < i; j++) { */
-		/* 			double r = Vector2Distance(box[i].q, box[j].q); */
-		/* 			double u = lj_potential(r); */
-		/* 			if (fabs(u) > 1) { */
-		/* 				printf("%d %d %f %f\n", i, j, r, u); */
-		/* 				printf("%f %f\n", box[i].q.x, box[i].q.y); */
-		/* 				printf("%f %f\n", box[j].q.x, box[j].q.y); */
-		/* 			} */
-		/* 		} */
-		/* 	} */
-		/* } */
 	draw:
 		/* Draw: box */
 		BeginDrawing();
 		ClearBackground(BLACK);
 		for (int i = 0; i < N; i++) {
-			DrawPixelV(C(box[i].q, M/L), box[i].c);
+			/* DrawPixelV(C(box[i].q, M/L), box[i].c); */
+			DrawCircleV(C(box[i].q, M/L), 2, box[i].c);
 		}
 
 		/* Draw: menu */
@@ -172,11 +154,15 @@ int main()
 		DrawText(buf, M+1, 16*height++, 16, WHITE);
 		snprintf(buf, 1024, "Total Energy: %f", K+U);
 		DrawText(buf, M+1, 16*height++, 16, WHITE);
-		if (U > 100000) {
-			paused = true;
+		if (production) {
+			snprintf(buf, 1024, "Production: true");
+			DrawText(buf, M+1, 16*height++, 16, WHITE);
 		}
 
 		EndDrawing();
+	}
+	for (int i = 0; i < BIN_COUNT; i++) {
+		printf("%f, %f, 1\n", i/50., rdf_bins[i]/powf(i+1, 0.95)/70);
 	}
 	CloseWindow();
 
