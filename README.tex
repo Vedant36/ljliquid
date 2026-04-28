@@ -1,0 +1,69 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{hyperref} % For \href command
+\usepackage{float}
+\usepackage{amsmath}
+
+\title{Molecular Dynamics Simulation of a Lennard-Jones Liquid}
+\author{Vedant Neema}
+\date{\today}
+  
+\begin{document}
+\maketitle
+
+\section*{Description}
+The program \cite{ljliquid} in this repository simulates a Lennard-Jones Liquid with variables:
+$N = 100$ particles in a 2D square box with side, $L = 11$ ($\Rightarrow \rho = 0.83$), with velocities distributed as per $T = 1$
+
+\section*{Dependencies}
+
+I use the \href{https://www.raylib.com/}{\bf Raylib} Graphics Library v5.5-1 for the interface and \href{http://www.gnuplot.info/}{\bf gnuplot} v6.0 for the graphs.
+
+\section*{How to run}
+Look for the file \texttt{ljliquid.c}, get Raylib 5.0 or higher, then compile using the command
+\begin{verbatim}
+$> gcc ljliquid.c -lm -lraylib -o ljliquid
+\end{verbatim}
+This should produce a binary that can be run in the terminal like
+\begin{verbatim}
+$> ./ljliquid
+\end{verbatim}
+
+\newpage
+\section*{Plots}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\linewidth]{entempressure.png}
+    \caption{Graph of energy, temperature and pressure}
+    \label{fig:placeholder}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\linewidth]{rdf.png}
+    \caption{Radial Distribution Function (rdf) sampled during the production run}
+    \label{fig:placeholder}
+\end{figure}
+
+\newpage
+\section*{Principles used}
+Using the velocity Verlet algorithm, we get a order $\Delta t^4$ accuracy in position, $\Delta t^3$ in velocity and $\Delta t^2$ in Energy\cite{veve}:
+\begin{itemize}
+    \item Calculate $\mathbf {x} (t+\Delta t)=\mathbf {x} (t)+\mathbf {v} (t)\,\Delta t+\tfrac{1}{2}\,\mathbf {a} (t)\,\Delta t^{2}$.
+    \item Derive $\displaystyle \mathbf {a} (t+\Delta t)$ from the interaction potential using $\displaystyle \mathbf {x} (t+\Delta t)$.
+    \item Calculate $\displaystyle \mathbf {v} (t+\Delta t)=\mathbf {v} (t)+{\tfrac {1}{2}}\,{\bigl (}\mathbf {a} (t)+\mathbf {a} (t+\Delta t){\bigr )}\Delta t$.
+\end{itemize}
+
+\section*{Observations}
+The rdf of the system looks like that of liquids. So, we can assume under the given conditions (T = 1, $\rho = 8.3$), any particles with the Lennard-Jones potential will be in the liquid state.
+
+
+\begin{thebibliography}{9}
+\bibitem{ljliquid}
+    \href{https://github.com/Vedant36/ljliquid}{Repository containing ljliquid.c on Github}
+\bibitem{veve}
+    \href{https://en.wikipedia.org/wiki/Verlet_integration#Velocity_Verlet}{Velocity Verlet on Wikipedia}
+\end{thebibliography}
+\end{document}
+
+
