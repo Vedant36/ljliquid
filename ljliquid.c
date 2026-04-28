@@ -1,7 +1,3 @@
-/* This is getting out of hand */
-/* stop listening to memory */
-/* simplify codebase with functions please */
-
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
