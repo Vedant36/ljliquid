@@ -10,7 +10,7 @@
 #define L 11
 #define M 500
 
-#define MENU 300
+#define MENU 0
 #define SW (M+MENU)
 #define SH (M>100?M:100)
 
@@ -105,7 +105,7 @@ int main()
 			if (timecent%100 == 0)
 				log_stats(timecent);
 			if (timecent >= 15000) paused = true;
-			time_collector -= delta;
+			time_collector -= delta/7;
 			for (int i = 0; i < N; i++) {
 				box[i].q = A(A(box[i].q, C(box[i].p, delta)), C(box[i].a, delta*delta/2));
 				Vector2 aa = Vector2Zero();
